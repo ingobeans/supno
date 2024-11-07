@@ -1,13 +1,15 @@
+use serde::Deserialize;
 use std::fs::File;
 use std::io::Read;
 use serde_yaml;
+use serde_json;
 use std::process;
+mod models;
 mod api;
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Deserialize)]
 struct Config {
     x_master_key: String,
-    x_access_key: String,
     bin_url: String,
 }
 
@@ -28,12 +30,12 @@ async fn main() {
             process::exit(1)
         }
     };
-    let data = match api::get_data(config.bin_url, config.x_master_key, config.x_access_key).await {
-        Ok(data) => data,
-        Err(e) => {
-            println!("couldn't fetch :<, error: {}", e);
-            process::exit(1)
-        }
-    };
-    println!("{}", data);
+    //let data = api::get_data(&config.bin_url, &config.x_master_key).await.expect("couldn't fetch >:(");
+    let data = "{\"supno\":\"yes\"}";
+    let fs: models::FileSystem = serde_json::from_str(&data).expect("Failed to parse JSON");
+    let text = serde_json::to_string(&fs).expect("wa");
+    println!("{:#?}", text);
+    api::set_data(text, &config.bin_url, &config.x_master_key).await.expect(
+        "error setting data >:("
+    );
 }
