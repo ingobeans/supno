@@ -23,17 +23,11 @@ fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
 
 #[tokio::main]
 async fn main() {
-    let config = match load_config("config.yaml") {
-        Ok(conf) => conf,
-        Err(e) => {
-            println!("config bad :<, error: {}", e);
-            process::exit(1)
-        }
-    };
+    let config = load_config("config.yaml").expect("config bad :<, error");
     //let data = api::get_data(&config.bin_url, &config.x_master_key).await.expect("couldn't fetch >:(");
     let data = "{\"supno\":\"yes\"}";
-    let fs: models::FileSystem = serde_json::from_str(&data).expect("Failed to parse JSON");
-    let text = serde_json::to_string(&fs).expect("wa");
+    let fs: models::FileSystem = serde_json::from_str(&data).expect("response json bad :<, error");
+    let text = serde_json::to_string(&fs).expect("couldn't serialize json :<, error");
     println!("{:#?}", text);
     api::set_data(text, &config.bin_url, &config.x_master_key).await.expect(
         "error setting data >:("
