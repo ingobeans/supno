@@ -2,6 +2,7 @@ use models::{ FileOrDirectory, FileSystem };
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;
+use std::hash::Hash;
 use crossterm::event::{ Event, KeyCode, KeyModifiers };
 use crossterm::{ execute, style::{ Color, SetForegroundColor, ResetColor }, cursor, terminal };
 use std::io::{ Read, stdout };
@@ -231,6 +232,15 @@ impl Supno {
         }
         CommandResult::BadArgs
     }
+    fn create_dir(&mut self, name: &str) -> CommandResult {
+        let current_dir = self.get_cwd_data_mut();
+        if current_dir.get(name).is_none() {
+            current_dir.insert(name.to_string(), FileOrDirectory::Directory(HashMap::new()));
+            self.move_to_dir(name);
+            return CommandResult::Ok;
+        }
+        CommandResult::BadArgs
+    }
     fn handle_command(&mut self, command: String) -> CommandResult {
         let mut args = command.split(' ');
         let keyword = args.next().unwrap_or("");
@@ -262,6 +272,12 @@ impl Supno {
                     return CommandResult::BadArgs;
                 }
                 return self.create_file(args.first().unwrap());
+            }
+            "d" | "mkdir" => {
+                if args.len() != 1 {
+                    return CommandResult::BadArgs;
+                }
+                return self.create_dir(args.first().unwrap());
             }
             "exit" => {
                 return CommandResult::Exit;
