@@ -148,6 +148,19 @@ impl Supno {
         }
         current_dir
     }
+    fn get_cwd_data_mut(&mut self) -> &mut HashMap<String, FileOrDirectory> {
+        let mut parts: Vec<&str> = self.cwd.split('/').collect();
+        parts.retain(|&s| !s.is_empty());
+        let mut current_dir = &mut self.data.entries;
+        for part in parts {
+            if let FileOrDirectory::Directory(data) = current_dir.get_mut(part).unwrap() {
+                current_dir = data;
+            } else {
+                panic!();
+            }
+        }
+        current_dir
+    }
     fn handle_path(&mut self, name: &str) -> CommandResult {
         if name == ".." {
             self.move_to_dir(name);
@@ -172,17 +185,7 @@ impl Supno {
         CommandResult::NotFound
     }
     fn remove_item(&mut self, name: &str) -> CommandResult {
-        let mut parts: Vec<&str> = self.cwd.split('/').collect();
-        parts.retain(|&s| !s.is_empty());
-        let mut current_dir = &mut self.data.entries;
-
-        for part in parts {
-            if let FileOrDirectory::Directory(data) = current_dir.get_mut(part).unwrap() {
-                current_dir = data;
-            } else {
-                return CommandResult::Ok;
-            }
-        }
+        let current_dir = self.get_cwd_data_mut();
 
         let item = current_dir.get(name);
         if item.is_some() {
@@ -208,12 +211,23 @@ impl Supno {
     fn open_file(&mut self, name: &str) -> CommandResult {
         let current_dir = self.get_cwd_data();
         let file = current_dir.get(name);
-        if file.is_some() {
-            if let FileOrDirectory::File(data) = file.unwrap() {
-                let data = data.to_string();
-                self.edit_data(data);
-                return CommandResult::Ok;
-            }
+        if let Some(FileOrDirectory::File(data)) = file {
+            let data = data.to_string();
+            let new = self.edit_data(data);
+
+            let current_dir = self.get_cwd_data_mut();
+            current_dir.insert(name.to_string(), FileOrDirectory::File(new.to_string()));
+            return CommandResult::Ok;
+        }
+
+        CommandResult::BadArgs
+    }
+    fn create_file(&mut self, name: &str) -> CommandResult {
+        let current_dir = self.get_cwd_data_mut();
+        if current_dir.get(name).is_none() {
+            current_dir.insert(name.to_string(), FileOrDirectory::File(String::new()));
+            self.open_file(name);
+            return CommandResult::Ok;
         }
         CommandResult::BadArgs
     }
@@ -242,6 +256,12 @@ impl Supno {
                     return CommandResult::BadArgs;
                 }
                 return self.remove_item(args.first().unwrap());
+            }
+            "n" | "new" => {
+                if args.len() != 1 {
+                    return CommandResult::BadArgs;
+                }
+                return self.create_file(args.first().unwrap());
             }
             "exit" => {
                 return CommandResult::Exit;
@@ -282,7 +302,7 @@ impl Supno {
                     self.error_message = String::new();
                 }
                 CommandResult::BadArgs => {
-                    self.error_message = String::from("incorrect args");
+                    self.error_message = String::from("bad args");
                 }
                 CommandResult::NotFound => {
                     self.error_message = String::from(
