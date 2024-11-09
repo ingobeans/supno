@@ -2,9 +2,8 @@ use models::{ FileOrDirectory, FileSystem };
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;
-use std::hash::Hash;
 use crossterm::event::{ Event, KeyCode, KeyModifiers };
-use crossterm::{ execute, style::{ Color, SetForegroundColor, ResetColor }, cursor, terminal };
+use crossterm::{ execute, style::{ Color, SetForegroundColor, ResetColor }, cursor };
 use std::io::{ Read, stdout };
 use serde_yaml;
 use serde_json;
@@ -122,6 +121,7 @@ struct Supno {
     cwd: String,
     data: FileSystem,
     error_message: String,
+    has_been_modified: bool,
 }
 
 impl Supno {
@@ -130,6 +130,7 @@ impl Supno {
             cwd: String::from("/"),
             data: data,
             error_message: String::from(""),
+            has_been_modified: false,
         }
     }
     fn move_to_dir(&mut self, name: &str) -> CommandResult {
@@ -207,6 +208,7 @@ impl Supno {
         let item = current_dir.get(name);
         if item.is_some() {
             current_dir.remove(name);
+            self.has_been_modified = true;
             return CommandResult::Ok;
         }
         CommandResult::BadArgs
@@ -230,7 +232,9 @@ impl Supno {
         let file = current_dir.get(name);
         if let Some(FileOrDirectory::File(data)) = file {
             let data = data.to_string();
+            let old_data = data.clone();
             let new = self.edit_data(data, name.to_string());
+            self.has_been_modified = self.has_been_modified || old_data != new;
 
             let current_dir = self.get_cwd_data_mut();
             current_dir.insert(name.to_string(), FileOrDirectory::File(new.to_string()));
@@ -252,6 +256,7 @@ impl Supno {
         let current_dir = self.get_cwd_data_mut();
         if current_dir.get(name).is_none() {
             current_dir.insert(name.to_string(), FileOrDirectory::Directory(HashMap::new()));
+            self.has_been_modified = true;
             self.move_to_dir(name);
             return CommandResult::Ok;
         }
@@ -328,7 +333,7 @@ impl Supno {
             input.text = String::new();
             input.cursor_x = 0;
             input.cursor_y = 0;
-            input.listen();
+            input.listen().unwrap();
             if input.custom_input.should_quit {
                 break;
             }
@@ -356,20 +361,20 @@ impl Supno {
 #[tokio::main]
 async fn main() {
     let config = load_config("config.yaml").expect("config bad :<, error");
-    //let data = api
-    //    ::get_data(&config.bin_url, &config.x_master_key).await
-    //    .expect("couldn't fetch >:(");
-    let data = "{\"supno\":\"yes\",\"gnome\":{\"wa\":{},\"donkey\":\"horse\"}}";
+    let data = api
+        ::get_data(&config.bin_url, &config.x_master_key).await
+        .expect("couldn't fetch >:(");
+    //let data = "{\"supno\":\"yes\",\"gnome\":{\"wa\":{},\"donkey\":\"horse\"}}";
     let fs: models::FileSystem = serde_json::from_str(&data).expect("response json bad :<, error");
 
     let mut supno = Supno::new(fs);
     supno.listen_terminal();
-
-    //if false && input.text != old_text {
-    //    fs.entries.insert("supno".to_string(), FileOrDirectory::File(input.text));
-    //    let text = serde_json::to_string(&fs).expect("couldn't serialize json :<, error");
-    //    api::set_data(text, &config.bin_url, &config.x_master_key).await.expect(
-    //        "error setting data >:("
-    //    );
-    //}
+    let supno_modified = supno.has_been_modified == true;
+    if supno_modified {
+        let text = serde_json::to_string(&supno.data).expect("couldn't serialize json :<, error");
+        api::set_data(text, &config.bin_url, &config.x_master_key).await.expect(
+            "error setting data >:("
+        );
+        println!("saved to cloud!");
+    }
 }
