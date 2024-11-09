@@ -26,17 +26,20 @@ fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
     Ok(config)
 }
 
-struct EditFileInput;
+struct EditFileInput {
+    file_name: String,
+}
 impl CustomInput for EditFileInput {
     fn get_offset(&mut self, _terminal_size: (u16, u16)) -> (u16, u16) {
-        (0, 1)
+        (0, 3)
     }
     fn before_draw_text(&mut self, _terminal_size: (u16, u16)) {
         let _ = execute!(stdout(), ResetColor);
     }
     fn after_draw_text(&mut self, _terminal_size: (u16, u16)) {
-        let _ = execute!(stdout(), SetForegroundColor(Color::Green));
-        set_terminal_line("[modifying wa.txt. press ctrl+x to save and exit]", 0, 0).unwrap();
+        let _ = execute!(stdout(), SetForegroundColor(Color::Blue));
+        set_terminal_line(&self.file_name, 0, 0).unwrap();
+        set_terminal_line("press ctrl+x to save and exit", 0, 1).unwrap();
     }
     fn handle_key_press(&mut self, key: &crossterm::event::Event) -> KeyPressResult {
         if let Event::Key(key_event) = key {
@@ -214,7 +217,7 @@ impl Supno {
         let file = current_dir.get(name);
         if let Some(FileOrDirectory::File(data)) = file {
             let data = data.to_string();
-            let new = self.edit_data(data);
+            let new = self.edit_data(data, name.to_string());
 
             let current_dir = self.get_cwd_data_mut();
             current_dir.insert(name.to_string(), FileOrDirectory::File(new.to_string()));
@@ -290,8 +293,8 @@ impl Supno {
             }
         }
     }
-    fn edit_data(&mut self, data: String) -> String {
-        let mut input = CoolInput::new(EditFileInput);
+    fn edit_data(&mut self, data: String, file_name: String) -> String {
+        let mut input = CoolInput::new(EditFileInput { file_name: file_name });
         input.text = data;
         input.listen().unwrap();
         input.text
