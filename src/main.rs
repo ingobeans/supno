@@ -1,6 +1,8 @@
 use serde::Deserialize;
 use std::fs::File;
-use std::io::Read;
+use crossterm::event::{ self, Event, KeyCode };
+use crossterm::{ execute, cursor, terminal, style::{ Color, SetForegroundColor, ResetColor } };
+use std::io::{ self, Read, Write, stdout };
 use serde_yaml;
 use serde_json;
 use cool_rust_input::{ CoolInput, DefaultInput, CustomInput, set_terminal_line };
@@ -21,6 +23,20 @@ fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
     Ok(config)
 }
 
+struct SupnoInput;
+impl CustomInput for SupnoInput {
+    fn get_offset(&mut self, terminal_size: (u16, u16)) -> (u16, u16) {
+        (0, 1)
+    }
+    fn before_draw_text(&mut self, terminal_size: (u16, u16)) {
+        let _ = execute!(stdout(), ResetColor);
+    }
+    fn after_draw_text(&mut self, terminal_size: (u16, u16)) {
+        let _ = execute!(stdout(), SetForegroundColor(Color::Green));
+        set_terminal_line("[modifying wa.txt]", 0, 0).unwrap();
+    }
+}
+
 #[tokio::main]
 async fn main() {
     //let config = load_config("config.yaml").expect("config bad :<, error");
@@ -30,7 +46,7 @@ async fn main() {
     let text = serde_json::to_string(&fs).expect("couldn't serialize json :<, error");
     println!("{:#?}", text);
 
-    let mut input = CoolInput::new(DefaultInput);
+    let mut input = CoolInput::new(SupnoInput);
     input.listen().unwrap();
     //api::set_data(text, &config.bin_url, &config.x_master_key).await.expect(
     //    "error setting data >:("
