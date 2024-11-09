@@ -60,7 +60,7 @@ pub fn set_terminal_line_dont_override(
     Ok(())
 }
 struct TerminalInput {
-    text: String,
+    error_message: String,
     cwd: String,
     dirs: String,
     files: String,
@@ -75,18 +75,22 @@ impl CustomInput for TerminalInput {
     fn after_draw_text(&mut self, _terminal_size: (u16, u16)) {
         let _ = execute!(stdout(), SetForegroundColor(Color::Grey));
         set_terminal_line(&self.cwd, 0, 0).unwrap();
-        set_terminal_line(&self.text, 0, 2).unwrap();
         let _ = execute!(stdout(), SetForegroundColor(Color::Green));
         set_terminal_line(&self.dirs, 0, 1).unwrap();
         let _ = execute!(stdout(), SetForegroundColor(Color::Blue));
         set_terminal_line_dont_override(&self.files, self.dirs.chars().count() + 1, 1).unwrap();
+        let _ = execute!(stdout(), SetForegroundColor(Color::Red));
+        set_terminal_line(&self.error_message, 0, 2).unwrap();
     }
     fn handle_key_press(&mut self, key: &crossterm::event::Event) -> KeyPressResult {
         if let Event::Key(key_event) = key {
-            if let KeyCode::Enter = key_event.code {
-                return KeyPressResult::Stop;
+            if key_event.kind == crossterm::event::KeyEventKind::Press {
+                if let KeyCode::Enter = key_event.code {
+                    return KeyPressResult::Stop;
+                }
             }
         }
+
         KeyPressResult::Continue
     }
 }
@@ -100,7 +104,7 @@ enum CommandResult {
 struct Supno {
     cwd: String,
     data: FileSystem,
-    terminal_output: String,
+    error_message: String,
 }
 
 impl Supno {
@@ -108,7 +112,7 @@ impl Supno {
         Supno {
             cwd: String::from("/"),
             data: data,
-            terminal_output: String::from(""),
+            error_message: String::from(""),
         }
     }
     fn move_to_dir(&mut self, name: &str) -> CommandResult {
@@ -147,6 +151,7 @@ impl Supno {
     fn handle_path(&mut self, name: &str) -> CommandResult {
         if name == ".." {
             self.move_to_dir(name);
+            return CommandResult::Ok;
         }
         let current_dir = self.get_cwd_data();
         let item = current_dir.get(name);
@@ -164,9 +169,28 @@ impl Supno {
             }
             return CommandResult::Ok;
         }
+        CommandResult::NotFound
+    }
+    fn remove_item(&mut self, name: &str) -> CommandResult {
+        let mut parts: Vec<&str> = self.cwd.split('/').collect();
+        parts.retain(|&s| !s.is_empty());
+        let mut current_dir = &mut self.data.entries;
+
+        for part in parts {
+            if let FileOrDirectory::Directory(data) = current_dir.get_mut(part).unwrap() {
+                current_dir = data;
+            } else {
+                return CommandResult::Ok;
+            }
+        }
+
+        let item = current_dir.get(name);
+        if item.is_some() {
+            current_dir.remove(name);
+            return CommandResult::Ok;
+        }
         CommandResult::BadArgs
     }
-    fn remove_item(&mut self, name: &str) {}
     fn list_dir(&mut self) -> (String, String) {
         let mut dirs = String::new();
         let mut files = String::new();
@@ -217,17 +241,18 @@ impl Supno {
                 if args.len() != 1 {
                     return CommandResult::BadArgs;
                 }
-                self.remove_item(args.first().unwrap());
+                return self.remove_item(args.first().unwrap());
             }
             "exit" => {
                 return CommandResult::Exit;
+            }
+            "ok" => {
+                return CommandResult::Ok;
             }
             _ => {
                 return self.handle_path(keyword);
             }
         }
-
-        CommandResult::Ok
     }
     fn edit_data(&mut self, data: String) -> String {
         let mut input = CoolInput::new(EditFileInput);
@@ -237,13 +262,13 @@ impl Supno {
     }
     fn listen_terminal(&mut self) {
         let mut input = CoolInput::new(TerminalInput {
-            text: String::new(),
+            error_message: String::new(),
             cwd: String::new(),
             dirs: String::new(),
             files: String::new(),
         });
         loop {
-            input.custom_input.text = self.terminal_output.to_string();
+            input.custom_input.error_message = self.error_message.to_string();
             input.custom_input.cwd = self.cwd.to_string();
             (input.custom_input.dirs, input.custom_input.files) = self.list_dir();
 
@@ -251,11 +276,19 @@ impl Supno {
             input.cursor_x = 0;
             input.cursor_y = 0;
             input.listen();
-            let result = self.handle_command(input.text);
+            let result = self.handle_command(input.text.to_string());
             match result {
-                CommandResult::Ok => {}
-                CommandResult::BadArgs => {}
-                CommandResult::NotFound => {}
+                CommandResult::Ok => {
+                    self.error_message = String::new();
+                }
+                CommandResult::BadArgs => {
+                    self.error_message = String::from("incorrect args");
+                }
+                CommandResult::NotFound => {
+                    self.error_message = String::from(
+                        "unknown command or nonexisting file/directory"
+                    );
+                }
                 CommandResult::Exit => {
                     break;
                 }
@@ -271,9 +304,7 @@ async fn main() {
     //    ::get_data(&config.bin_url, &config.x_master_key).await
     //    .expect("couldn't fetch >:(");
     let data = "{\"supno\":\"yes\",\"gnome\":{\"wa\":{},\"donkey\":\"horse\"}}";
-    let mut fs: models::FileSystem = serde_json
-        ::from_str(&data)
-        .expect("response json bad :<, error");
+    let fs: models::FileSystem = serde_json::from_str(&data).expect("response json bad :<, error");
 
     let mut supno = Supno::new(fs);
     supno.listen_terminal();
