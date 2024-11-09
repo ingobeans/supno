@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cool-rust-input = { git = "https://github.com/ingobeans/cool-rust-input.git", version = "0.1.0" }
 crossterm = "0.28.1"
 latest = "0.1.1"
 reqwest = "0.12.9"
