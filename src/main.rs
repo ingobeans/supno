@@ -1,7 +1,7 @@
 use models::FileOrDirectory;
 use serde::Deserialize;
 use std::fs::File;
-use crossterm::event::{ self, Event, KeyCode, KeyModifiers };
+use crossterm::event::{ Event, KeyCode, KeyModifiers };
 use crossterm::{ execute, style::{ Color, SetForegroundColor, ResetColor } };
 use std::io::{ Read, stdout };
 use serde_yaml;

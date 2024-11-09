@@ -1,5 +1,4 @@
 use reqwest;
-use super::models;
 
 pub async fn get_data(url: &String, x_master_key: &String) -> Result<String, reqwest::Error> {
     let client = reqwest::Client::new();
@@ -20,7 +19,7 @@ pub async fn set_data(
     x_master_key: &String
 ) -> Result<(), reqwest::Error> {
     let client = reqwest::Client::new();
-    let res = client
+    let _ = client
         .put(url)
         .header("X-Master-Key", x_master_key)
         .header("X-Bin-Meta", "false")
