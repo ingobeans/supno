@@ -1,11 +1,11 @@
 use serde::Deserialize;
 use std::fs::File;
-use crossterm::event::{ self, Event, KeyCode };
+use crossterm::event::{ self, Event, KeyCode, KeyModifiers };
 use crossterm::{ execute, cursor, terminal, style::{ Color, SetForegroundColor, ResetColor } };
 use std::io::{ self, Read, Write, stdout };
 use serde_yaml;
 use serde_json;
-use cool_rust_input::{ CoolInput, DefaultInput, CustomInput, set_terminal_line };
+use cool_rust_input::{ CoolInput, DefaultInput, CustomInput, set_terminal_line, KeyPressResult };
 mod models;
 mod api;
 
@@ -33,7 +33,19 @@ impl CustomInput for SupnoInput {
     }
     fn after_draw_text(&mut self, terminal_size: (u16, u16)) {
         let _ = execute!(stdout(), SetForegroundColor(Color::Green));
-        set_terminal_line("[modifying wa.txt]", 0, 0).unwrap();
+        set_terminal_line("[modifying wa.txt. press ctrl+x to save and exit]", 0, 0).unwrap();
+    }
+    fn handle_key_press(&mut self, key: &crossterm::event::Event) -> KeyPressResult {
+        if let Event::Key(key_event) = key {
+            if let KeyCode::Char(c) = key_event.code {
+                if key_event.modifiers.contains(KeyModifiers::CONTROL) {
+                    if c == 'x' {
+                        return KeyPressResult::Stop;
+                    }
+                }
+            }
+        }
+        KeyPressResult::Continue
     }
 }
 
@@ -48,6 +60,7 @@ async fn main() {
 
     let mut input = CoolInput::new(SupnoInput);
     input.listen().unwrap();
+    println!("{}", input.text);
     //api::set_data(text, &config.bin_url, &config.x_master_key).await.expect(
     //    "error setting data >:("
     //);

@@ -86,7 +86,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "cool-rust-input"
 version = "0.1.0"
-source = "git+https://github.com/ingobeans/cool-rust-input.git#2fd2810e95df958cd6d45dabddecaf8acfec10b0"
+source = "git+https://github.com/ingobeans/cool-rust-input.git#0fa4beb687de71e4bb3bccc1cc4836e485de1f27"
 dependencies = [
  "crossterm",
 ]
