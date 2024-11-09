@@ -68,6 +68,7 @@ struct TerminalInput {
     cwd: String,
     dirs: String,
     files: String,
+    should_quit: bool,
 }
 impl CustomInput for TerminalInput {
     fn get_offset(&mut self, _terminal_size: (u16, u16)) -> (u16, u16) {
@@ -91,6 +92,18 @@ impl CustomInput for TerminalInput {
             if key_event.kind == crossterm::event::KeyEventKind::Press {
                 if let KeyCode::Enter = key_event.code {
                     return KeyPressResult::Stop;
+                }
+                if let KeyCode::Esc = key_event.code {
+                    self.should_quit = true;
+                    return KeyPressResult::Stop;
+                }
+                if let KeyCode::Char(c) = key_event.code {
+                    if key_event.modifiers.contains(KeyModifiers::CONTROL) {
+                        if c == 'x' {
+                            self.should_quit = true;
+                            return KeyPressResult::Stop;
+                        }
+                    }
                 }
             }
         }
@@ -305,6 +318,7 @@ impl Supno {
             cwd: String::new(),
             dirs: String::new(),
             files: String::new(),
+            should_quit: false,
         });
         loop {
             input.custom_input.error_message = self.error_message.to_string();
@@ -315,6 +329,9 @@ impl Supno {
             input.cursor_x = 0;
             input.cursor_y = 0;
             input.listen();
+            if input.custom_input.should_quit {
+                break;
+            }
             let result = self.handle_command(input.text.to_string());
             match result {
                 CommandResult::Ok => {
