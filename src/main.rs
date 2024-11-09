@@ -300,6 +300,10 @@ impl Supno {
                 }
                 return self.create_dir(args.first().unwrap());
             }
+            "abort" => {
+                self.has_been_modified = false;
+                return CommandResult::Exit;
+            }
             "exit" => {
                 return CommandResult::Exit;
             }
@@ -365,13 +369,17 @@ async fn main() {
         ::get_data(&config.bin_url, &config.x_master_key).await
         .expect("couldn't fetch >:(");
     //let data = "{\"supno\":\"yes\",\"gnome\":{\"wa\":{},\"donkey\":\"horse\"}}";
-    let fs: models::FileSystem = serde_json::from_str(&data).expect("response json bad :<, error");
-
+    let mut fs: models::FileSystem = serde_json
+        ::from_str(&data)
+        .expect("response json bad :<, error");
+    fs.entries.remove(".supno");
     let mut supno = Supno::new(fs);
     supno.listen_terminal();
     let supno_modified = supno.has_been_modified == true;
     if supno_modified {
-        let text = serde_json::to_string(&supno.data).expect("couldn't serialize json :<, error");
+        let mut data = supno.data;
+        data.entries.insert(String::from(".supno"), FileOrDirectory::File(String::from("yes")));
+        let text = serde_json::to_string(&data).expect("couldn't serialize json :<, error");
         api::set_data(text, &config.bin_url, &config.x_master_key).await.expect(
             "error setting data >:("
         );
