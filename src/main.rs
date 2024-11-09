@@ -1,11 +1,8 @@
 use serde::Deserialize;
 use std::fs::File;
-use std::io::{ stdout, Read };
+use std::io::Read;
 use serde_yaml;
 use serde_json;
-use std::io::{ self, Write };
-use std::time::Duration;
-use std::cmp;
 use cool_rust_input::{ CoolInput, DefaultInput, CustomInput, set_terminal_line };
 mod models;
 mod api;
