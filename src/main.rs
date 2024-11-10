@@ -188,9 +188,9 @@ struct Supno {
 impl Supno {
     fn new(data: FileSystem) -> Self {
         Supno {
-            cwd: String::from("/"),
+            cwd: "/".to_string(),
             data: data,
-            error_message: String::from(""),
+            error_message: "".to_string(),
             has_been_modified: false,
         }
     }
@@ -207,10 +207,10 @@ impl Supno {
         if new_dir.is_some() {
             if let FileOrDirectory::Directory(_) = new_dir.unwrap() {
                 if self.cwd == "/" {
-                    self.cwd = String::from("/") + name;
+                    self.cwd = "/".to_string() + name;
                     return CommandResult::Ok;
                 }
-                self.cwd.insert_str(self.cwd.len(), &(String::from("/") + name));
+                self.cwd.insert_str(self.cwd.len(), &("/".to_string() + name));
                 return CommandResult::Ok;
             }
         }
@@ -440,16 +440,15 @@ impl Supno {
                     self.error_message = String::new();
                 }
                 CommandResult::BadArgs => {
-                    self.error_message = String::from("bad args");
+                    self.error_message = "bad args".to_string();
                 }
                 CommandResult::NotFound => {
                     if let Some(ref autocomplete) = input.custom_input.current_autocomplete {
                         let full = input.text.to_string() + &autocomplete.to_string();
                         self.handle_path(&full);
                     } else {
-                        self.error_message = String::from(
-                            "unknown command or nonexisting file/directory"
-                        );
+                        self.error_message =
+                            "unknown command or nonexisting file/directory".to_string();
                     }
                 }
                 CommandResult::Exit => {
@@ -477,7 +476,7 @@ async fn main() {
     let supno_modified = supno.has_been_modified == true;
     if supno_modified {
         let mut data = supno.data;
-        data.entries.insert(String::from(".supno"), FileOrDirectory::File(String::from("yes")));
+        data.entries.insert(".supno".to_string(), FileOrDirectory::File("yes".to_string()));
         let text = serde_json::to_string(&data).expect("couldn't serialize json :<, error");
         api::set_data(text, &config.bin_url, &config.x_master_key).await.expect(
             "error setting data >:("
