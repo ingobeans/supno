@@ -574,12 +574,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "latest"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbcecbffc965131a019eb69ad21f897fedd12cc2a22577c63767721ec99ddb0a"
-
-[[package]]
 name = "libc"
 version = "0.2.162"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1099,7 +1093,6 @@ version = "0.1.0"
 dependencies = [
  "cool-rust-input",
  "crossterm",
- "latest",
  "reqwest",
  "serde",
  "serde_json",
