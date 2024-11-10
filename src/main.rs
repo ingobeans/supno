@@ -116,7 +116,7 @@ impl CustomInput for TerminalInput {
         let input_length = current_text.chars().count();
         let autocomplete = self.autocomplete_input(current_text);
         if let Some(autocomplete) = autocomplete {
-            set_terminal_line_dont_override(&autocomplete, input_length + 1, 3);
+            let _ = set_terminal_line_dont_override(&autocomplete, input_length + 1, 3);
             self.current_autocomplete = Some(autocomplete.to_string());
         } else {
             self.current_autocomplete = None;
