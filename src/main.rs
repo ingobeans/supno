@@ -17,11 +17,15 @@ struct Config {
     bin_url: String,
 }
 
-fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
+fn load_config(path: &str) -> Result<Config, std::io::Error> {
     let mut file = File::open(path)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    let config: Config = serde_yaml::from_str(&contents)?;
+
+    let config: Config = serde_yaml
+        ::from_str(&contents)
+        .map_err(|_| { std::io::Error::new(std::io::ErrorKind::Other, "Couldn't pass yaml") })?;
+
     Ok(config)
 }
 
