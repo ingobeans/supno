@@ -29,18 +29,22 @@ struct EditFileInput {
     file_name: String,
 }
 impl CustomInput for EditFileInput {
-    fn get_offset(&mut self, _terminal_size: (u16, u16)) -> (u16, u16) {
+    fn get_offset(&mut self, _terminal_size: (u16, u16), _current_text: String) -> (u16, u16) {
         (0, 3)
     }
-    fn before_draw_text(&mut self, _terminal_size: (u16, u16)) {
+    fn before_draw_text(&mut self, _terminal_size: (u16, u16), _current_text: String) {
         let _ = execute!(stdout(), ResetColor);
     }
-    fn after_draw_text(&mut self, _terminal_size: (u16, u16)) {
+    fn after_draw_text(&mut self, _terminal_size: (u16, u16), _current_text: String) {
         let _ = execute!(stdout(), SetForegroundColor(Color::Blue));
         set_terminal_line(&self.file_name, 0, 0).unwrap();
         set_terminal_line("press ctrl+x to save and exit", 0, 1).unwrap();
     }
-    fn handle_key_press(&mut self, key: &crossterm::event::Event) -> KeyPressResult {
+    fn handle_key_press(
+        &mut self,
+        key: &crossterm::event::Event,
+        _current_text: String
+    ) -> KeyPressResult {
         if let Event::Key(key_event) = key {
             if let KeyCode::Char(c) = key_event.code {
                 if key_event.modifiers.contains(KeyModifiers::CONTROL) {
@@ -67,16 +71,38 @@ struct TerminalInput {
     cwd: String,
     dirs: String,
     files: String,
+    items: Vec<String>,
+    current_autocomplete: Option<String>,
     should_quit: bool,
+    should_back: bool,
+}
+impl TerminalInput {
+    fn autocomplete_input(&mut self, current_input: String) -> Option<String> {
+        if current_input.is_empty() {
+            return None;
+        }
+
+        let mut items = self.items.clone();
+        items.sort_by_key(|item| item.len());
+        for item in &self.items {
+            if item == &current_input {
+                return None;
+            }
+            if item.starts_with(&current_input) {
+                return Some(item.trim_start_matches(&current_input).to_string());
+            }
+        }
+        None
+    }
 }
 impl CustomInput for TerminalInput {
-    fn get_offset(&mut self, _terminal_size: (u16, u16)) -> (u16, u16) {
+    fn get_offset(&mut self, _terminal_size: (u16, u16), _current_text: String) -> (u16, u16) {
         (0, 3)
     }
-    fn before_draw_text(&mut self, _terminal_size: (u16, u16)) {
+    fn before_draw_text(&mut self, _terminal_size: (u16, u16), _current_text: String) {
         let _ = execute!(stdout(), ResetColor);
     }
-    fn after_draw_text(&mut self, _terminal_size: (u16, u16)) {
+    fn after_draw_text(&mut self, _terminal_size: (u16, u16), current_text: String) {
         let _ = execute!(stdout(), SetForegroundColor(Color::Grey));
         set_terminal_line(&self.cwd, 0, 0).unwrap();
         let _ = execute!(stdout(), SetForegroundColor(Color::Green));
@@ -85,21 +111,35 @@ impl CustomInput for TerminalInput {
         set_terminal_line_dont_override(&self.files, self.dirs.chars().count() + 1, 1).unwrap();
         let _ = execute!(stdout(), SetForegroundColor(Color::Red));
         set_terminal_line(&self.error_message, 0, 2).unwrap();
+
+        let _ = execute!(stdout(), SetForegroundColor(Color::DarkGrey));
+        let input_length = current_text.chars().count();
+        let autocomplete = self.autocomplete_input(current_text);
+        if let Some(autocomplete) = autocomplete {
+            set_terminal_line_dont_override(&autocomplete, input_length + 1, 3);
+            self.current_autocomplete = Some(autocomplete.to_string());
+        } else {
+            self.current_autocomplete = None;
+        }
     }
-    fn handle_key_press(&mut self, key: &crossterm::event::Event) -> KeyPressResult {
+    fn handle_key_press(
+        &mut self,
+        key: &crossterm::event::Event,
+        _current_text: String
+    ) -> KeyPressResult {
         if let Event::Key(key_event) = key {
             if key_event.kind == crossterm::event::KeyEventKind::Press {
                 if let KeyCode::Enter = key_event.code {
                     return KeyPressResult::Stop;
                 }
                 if let KeyCode::Esc = key_event.code {
-                    self.should_quit = true;
+                    self.should_back = true;
                     return KeyPressResult::Stop;
                 }
                 if let KeyCode::Char(c) = key_event.code {
                     if key_event.modifiers.contains(KeyModifiers::CONTROL) {
                         if c == 'x' {
-                            self.should_quit = true;
+                            self.should_back = true;
                             return KeyPressResult::Stop;
                         }
                     }
@@ -134,7 +174,7 @@ impl Supno {
         }
     }
     fn move_to_dir(&mut self, name: &str) -> CommandResult {
-        if name == ".." {
+        if name.chars().all(|c| c == '.') {
             let mut parts: Vec<&str> = self.cwd.split('/').collect();
             parts.retain(|&s| !s.is_empty());
             parts.pop();
@@ -180,7 +220,7 @@ impl Supno {
         current_dir
     }
     fn handle_path(&mut self, name: &str) -> CommandResult {
-        if name == ".." {
+        if name.chars().all(|c| c == '.') {
             self.move_to_dir(name);
             return CommandResult::Ok;
         }
@@ -213,9 +253,10 @@ impl Supno {
         }
         CommandResult::BadArgs
     }
-    fn list_dir(&mut self) -> (String, String) {
+    fn list_dir(&mut self) -> (Vec<String>, String, String) {
         let mut dirs = String::new();
         let mut files = String::new();
+        let mut items: Vec<String> = Vec::new();
 
         let current_dir = self.get_cwd_data();
         for (item, value) in current_dir {
@@ -224,8 +265,9 @@ impl Supno {
             } else {
                 files += &(item.to_string() + &" ");
             }
+            items.push(item.to_string());
         }
-        (dirs, files)
+        (items, dirs, files)
     }
     fn open_file(&mut self, name: &str) -> CommandResult {
         let current_dir = self.get_cwd_data();
@@ -327,19 +369,31 @@ impl Supno {
             cwd: String::new(),
             dirs: String::new(),
             files: String::new(),
+            items: Vec::new(),
+            current_autocomplete: None,
             should_quit: false,
+            should_back: false,
         });
         loop {
             input.custom_input.error_message = self.error_message.to_string();
             input.custom_input.cwd = self.cwd.to_string();
-            (input.custom_input.dirs, input.custom_input.files) = self.list_dir();
+            (input.custom_input.items, input.custom_input.dirs, input.custom_input.files) =
+                self.list_dir();
 
             input.text = String::new();
             input.cursor_x = 0;
             input.cursor_y = 0;
+            input.custom_input.should_back = false;
             input.listen().unwrap();
             if input.custom_input.should_quit {
                 break;
+            }
+            if input.custom_input.should_back {
+                if self.cwd == "/" {
+                    break;
+                }
+                self.move_to_dir("..");
+                continue;
             }
             let result = self.handle_command(input.text.to_string());
             match result {
@@ -350,9 +404,14 @@ impl Supno {
                     self.error_message = String::from("bad args");
                 }
                 CommandResult::NotFound => {
-                    self.error_message = String::from(
-                        "unknown command or nonexisting file/directory"
-                    );
+                    if let Some(ref autocomplete) = input.custom_input.current_autocomplete {
+                        let full = input.text.to_string() + &autocomplete.to_string();
+                        self.handle_path(&full);
+                    } else {
+                        self.error_message = String::from(
+                            "unknown command or nonexisting file/directory"
+                        );
+                    }
                 }
                 CommandResult::Exit => {
                     break;
@@ -368,7 +427,7 @@ async fn main() {
     let data = api
         ::get_data(&config.bin_url, &config.x_master_key).await
         .expect("couldn't fetch >:(");
-    //let data = "{\"supno\":\"yes\",\"gnome\":{\"wa\":{},\"donkey\":\"horse\"}}";
+    //let data = "{\".supno\":\"yes\",\"gnome\":{\"wa\":{},\"donkey\":\"horse\"}}";
     let mut fs: models::FileSystem = serde_json
         ::from_str(&data)
         .expect("response json bad :<, error");
