@@ -86,7 +86,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "cool-rust-input"
 version = "0.1.0"
-source = "git+https://github.com/ingobeans/cool-rust-input.git#8410af1b5805349c1f1165b512477e675e42d90c"
+source = "git+https://github.com/ingobeans/cool-rust-input.git#bf47594427327f9fe75b2ad15e52cd56c82d3f4a"
 dependencies = [
  "crossterm",
 ]
@@ -863,9 +863,9 @@ checksum = "719b953e2095829ee67db738b3bfa9fa368c94900df327b3f07fe6e794d2fe1f"
 
 [[package]]
 name = "rustix"
-version = "0.38.39"
+version = "0.38.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "375116bee2be9ed569afe2154ea6a99dfdffd257f533f187498c2a8f5feaf4ee"
+checksum = "99e4ea3e1cdc4b559b8e5650f9c8e5998e3e5c1343b4eaf034565f32318d63c0"
 dependencies = [
  "bitflags",
  "errno",

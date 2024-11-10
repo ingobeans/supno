@@ -27,6 +27,8 @@ fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
 
 struct EditFileInput {
     file_name: String,
+    should_save_file: bool,
+    should_continue: bool,
 }
 impl CustomInput for EditFileInput {
     fn get_offset(&mut self, _terminal_size: (u16, u16), _current_text: String) -> (u16, u16) {
@@ -37,8 +39,13 @@ impl CustomInput for EditFileInput {
     }
     fn after_draw_text(&mut self, _terminal_size: (u16, u16), _current_text: String) {
         let _ = execute!(stdout(), SetForegroundColor(Color::Blue));
-        set_terminal_line(&self.file_name, 0, 0).unwrap();
-        set_terminal_line("press ctrl+x to save and exit", 0, 1).unwrap();
+        let header = "[".to_string() + &self.file_name + "]";
+        set_terminal_line(&header, 0, 0).unwrap();
+        set_terminal_line(
+            "ctrl+s to save | ctrl+q to exit | ctrl+x to save and exit",
+            0,
+            1
+        ).unwrap();
     }
     fn handle_key_press(
         &mut self,
@@ -49,6 +56,16 @@ impl CustomInput for EditFileInput {
             if let KeyCode::Char(c) = key_event.code {
                 if key_event.modifiers.contains(KeyModifiers::CONTROL) {
                     if c == 'x' {
+                        self.should_save_file = true;
+                        return KeyPressResult::Stop;
+                    }
+                    if c == 'q' {
+                        self.should_save_file = false;
+                        return KeyPressResult::Stop;
+                    }
+                    if c == 's' {
+                        self.should_save_file = true;
+                        self.should_continue = true;
                         return KeyPressResult::Stop;
                     }
                 }
@@ -275,11 +292,31 @@ impl Supno {
         if let Some(FileOrDirectory::File(data)) = file {
             let data = data.to_string();
             let old_data = data.clone();
-            let new = self.edit_data(data, name.to_string());
-            self.has_been_modified = self.has_been_modified || old_data != new;
 
-            let current_dir = self.get_cwd_data_mut();
-            current_dir.insert(name.to_string(), FileOrDirectory::File(new.to_string()));
+            let mut input = CoolInput::new(EditFileInput {
+                file_name: name.to_string(),
+                should_save_file: false,
+                should_continue: false,
+            });
+            input.text = data;
+            let mut should_continue = true;
+            input.pre_listen().unwrap();
+            input.render().unwrap();
+            while should_continue {
+                input.custom_input.should_save_file = false;
+                input.custom_input.should_continue = false;
+                input.listen_quiet().unwrap();
+                should_continue = input.custom_input.should_continue;
+                let new = input.text.to_string();
+                if input.custom_input.should_save_file {
+                    self.has_been_modified = self.has_been_modified || old_data != new;
+
+                    let current_dir = self.get_cwd_data_mut();
+                    current_dir.insert(name.to_string(), FileOrDirectory::File(new.to_string()));
+                }
+            }
+            input.post_listen().unwrap();
+
             return CommandResult::Ok;
         }
 
@@ -357,12 +394,7 @@ impl Supno {
             }
         }
     }
-    fn edit_data(&mut self, data: String, file_name: String) -> String {
-        let mut input = CoolInput::new(EditFileInput { file_name: file_name });
-        input.text = data;
-        input.listen().unwrap();
-        input.text
-    }
+
     fn listen_terminal(&mut self) {
         let mut input = CoolInput::new(TerminalInput {
             error_message: String::new(),
@@ -374,6 +406,8 @@ impl Supno {
             should_quit: false,
             should_back: false,
         });
+
+        input.pre_listen().unwrap();
         loop {
             input.custom_input.error_message = self.error_message.to_string();
             input.custom_input.cwd = self.cwd.to_string();
@@ -384,7 +418,8 @@ impl Supno {
             input.cursor_x = 0;
             input.cursor_y = 0;
             input.custom_input.should_back = false;
-            input.listen().unwrap();
+            input.render().unwrap();
+            input.listen_quiet().unwrap();
             if input.custom_input.should_quit {
                 break;
             }
@@ -418,6 +453,7 @@ impl Supno {
                 }
             }
         }
+        input.post_listen().unwrap();
     }
 }
 
