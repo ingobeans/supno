@@ -38,17 +38,21 @@ impl CustomInput for EditFileInput {
     fn get_offset(&mut self, _terminal_size: (u16, u16), _current_text: String) -> (u16, u16) {
         (0, 3)
     }
+    fn get_size(&mut self, terminal_size: (u16, u16), _current_text: String) -> (u16, u16) {
+        (terminal_size.0, terminal_size.1 - 3)
+    }
     fn before_draw_text(&mut self, _terminal_size: (u16, u16), _current_text: String) {
         let _ = execute!(stdout(), ResetColor);
     }
     fn after_draw_text(&mut self, _terminal_size: (u16, u16), _current_text: String) {
         let _ = execute!(stdout(), SetForegroundColor(Color::Blue));
         let header = "[".to_string() + &self.file_name + "]";
-        set_terminal_line(&header, 0, 0).unwrap();
+        set_terminal_line(&header, 0, 0, true).unwrap();
         set_terminal_line(
             "ctrl+s to save | ctrl+q to exit | ctrl+x to save and exit",
             0,
-            1
+            1,
+            true
         ).unwrap();
     }
     fn handle_key_press(
@@ -77,15 +81,6 @@ impl CustomInput for EditFileInput {
         }
         KeyPressResult::Continue
     }
-}
-pub fn set_terminal_line_dont_override(
-    text: &str,
-    x: usize,
-    y: usize
-) -> Result<(), std::io::Error> {
-    execute!(stdout(), cursor::Hide)?;
-    print!("\x1b[{};{}H{}", y + 1, x, text);
-    Ok(())
 }
 struct TerminalInput {
     error_message: String,
@@ -120,24 +115,27 @@ impl CustomInput for TerminalInput {
     fn get_offset(&mut self, _terminal_size: (u16, u16), _current_text: String) -> (u16, u16) {
         (0, 3)
     }
+    fn get_size(&mut self, terminal_size: (u16, u16), _current_text: String) -> (u16, u16) {
+        (terminal_size.0, terminal_size.1 - 3)
+    }
     fn before_draw_text(&mut self, _terminal_size: (u16, u16), _current_text: String) {
         let _ = execute!(stdout(), ResetColor);
     }
     fn after_draw_text(&mut self, _terminal_size: (u16, u16), current_text: String) {
         let _ = execute!(stdout(), SetForegroundColor(Color::Grey));
-        set_terminal_line(&self.cwd, 0, 0).unwrap();
+        set_terminal_line(&self.cwd, 0, 0, true).unwrap();
         let _ = execute!(stdout(), SetForegroundColor(Color::Green));
-        set_terminal_line(&self.dirs, 0, 1).unwrap();
+        set_terminal_line(&self.dirs, 0, 1, true).unwrap();
         let _ = execute!(stdout(), SetForegroundColor(Color::Blue));
-        set_terminal_line_dont_override(&self.files, self.dirs.chars().count() + 1, 1).unwrap();
+        set_terminal_line(&self.files, self.dirs.chars().count() + 1, 1, false).unwrap();
         let _ = execute!(stdout(), SetForegroundColor(Color::Red));
-        set_terminal_line(&self.error_message, 0, 2).unwrap();
+        set_terminal_line(&self.error_message, 0, 2, true).unwrap();
 
         let _ = execute!(stdout(), SetForegroundColor(Color::DarkGrey));
         let input_length = current_text.chars().count();
         let autocomplete = self.autocomplete_input(current_text);
         if let Some(autocomplete) = autocomplete {
-            let _ = set_terminal_line_dont_override(&autocomplete, input_length + 1, 3);
+            let _ = set_terminal_line(&autocomplete, input_length, 3, false);
             self.current_autocomplete = Some(autocomplete.to_string());
         } else {
             self.current_autocomplete = None;
