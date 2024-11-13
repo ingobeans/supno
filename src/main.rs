@@ -3,7 +3,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;
 use crossterm::event::{ Event, KeyCode, KeyModifiers };
-use crossterm::{ execute, style::{ Color, SetForegroundColor, ResetColor }, cursor };
+use crossterm::{ execute, style::{ Color, SetForegroundColor, ResetColor } };
 use std::io::{ Read, stdout };
 use serde_yaml;
 use serde_json;
