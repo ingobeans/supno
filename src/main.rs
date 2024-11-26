@@ -1,3 +1,4 @@
+use clap::Parser;
 use cool_rust_input::{set_terminal_line, CoolInput, CustomInput, KeyPressResult};
 use crossterm::event::{Event, KeyCode, KeyModifiers};
 use crossterm::{
@@ -13,6 +14,13 @@ use std::fs::File;
 use std::io::{stdout, Read};
 mod api;
 mod models;
+
+#[derive(Parser, Debug)]
+#[command(about, long_about = None)]
+struct Args {
+    #[arg(short, long, default_value_t = String::from("config.yaml"))]
+    config: String,
+}
 
 #[derive(Debug, Deserialize)]
 struct Config {
@@ -467,7 +475,8 @@ impl Supno {
 
 #[tokio::main]
 async fn main() {
-    let config = load_config("config.yaml").expect("config bad :<, error");
+    let args = Args::parse();
+    let config = load_config(&args.config).expect("config bad :<, error");
     let data = api::get_data(&config.bin_url, &config.x_master_key)
         .await
         .expect("couldn't fetch >:(");
