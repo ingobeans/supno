@@ -474,12 +474,18 @@ async fn main() {
     //let data = "{\"supno keep\":\"yes\",\"gnome\":{\"wa\":{},\"donkey\":\"horse\"}}";
     let mut fs: models::FileSystem =
         serde_json::from_str(&data).expect("response json bad :<, error");
+
+    // hide the "supno keep" file
     fs.entries.remove("supno keep");
+
     let mut supno = Supno::new(fs);
     supno.listen_terminal();
     let supno_modified = supno.has_been_modified == true;
     if supno_modified {
         let mut data = supno.data;
+
+        // create a supno keep file
+        // (the jsonbin api doesn't allow writing empty json data, so this ensures there's always at least 1 key present)
         data.entries.insert(
             "supno keep".to_string(),
             FileOrDirectory::File("yes".to_string()),
