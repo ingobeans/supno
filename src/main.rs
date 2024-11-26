@@ -1,15 +1,18 @@
-use models::{ FileOrDirectory, FileSystem };
+use cool_rust_input::{set_terminal_line, CoolInput, CustomInput, KeyPressResult};
+use crossterm::event::{Event, KeyCode, KeyModifiers};
+use crossterm::{
+    execute,
+    style::{Color, ResetColor, SetForegroundColor},
+};
+use models::{FileOrDirectory, FileSystem};
 use serde::Deserialize;
+use serde_json;
+use serde_yaml;
 use std::collections::HashMap;
 use std::fs::File;
-use crossterm::event::{ Event, KeyCode, KeyModifiers };
-use crossterm::{ execute, style::{ Color, SetForegroundColor, ResetColor } };
-use std::io::{ Read, stdout };
-use serde_yaml;
-use serde_json;
-use cool_rust_input::{ CoolInput, CustomInput, set_terminal_line, KeyPressResult };
-mod models;
+use std::io::{stdout, Read};
 mod api;
+mod models;
 
 #[derive(Debug, Deserialize)]
 struct Config {
@@ -22,9 +25,8 @@ fn load_config(path: &str) -> Result<Config, std::io::Error> {
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
 
-    let config: Config = serde_yaml
-        ::from_str(&contents)
-        .map_err(|_| { std::io::Error::new(std::io::ErrorKind::Other, "Couldn't pass yaml") })?;
+    let config: Config = serde_yaml::from_str(&contents)
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Couldn't pass yaml"))?;
 
     Ok(config)
 }
@@ -52,13 +54,14 @@ impl CustomInput for EditFileInput {
             "ctrl+s to save | ctrl+q to exit | ctrl+x to save and exit",
             0,
             1,
-            true
-        ).unwrap();
+            true,
+        )
+        .unwrap();
     }
     fn handle_key_press(
         &mut self,
         key: &crossterm::event::Event,
-        _current_text: String
+        _current_text: String,
     ) -> KeyPressResult {
         if let Event::Key(key_event) = key {
             if let KeyCode::Char(c) = key_event.code {
@@ -144,7 +147,7 @@ impl CustomInput for TerminalInput {
     fn handle_key_press(
         &mut self,
         key: &crossterm::event::Event,
-        _current_text: String
+        _current_text: String,
     ) -> KeyPressResult {
         if let Event::Key(key_event) = key {
             if key_event.kind == crossterm::event::KeyEventKind::Press {
@@ -208,7 +211,8 @@ impl Supno {
                     self.cwd = "/".to_string() + name;
                     return CommandResult::Ok;
                 }
-                self.cwd.insert_str(self.cwd.len(), &("/".to_string() + name));
+                self.cwd
+                    .insert_str(self.cwd.len(), &("/".to_string() + name));
                 return CommandResult::Ok;
             }
         }
@@ -413,8 +417,11 @@ impl Supno {
         loop {
             input.custom_input.error_message = self.error_message.to_string();
             input.custom_input.cwd = self.cwd.to_string();
-            (input.custom_input.items, input.custom_input.dirs, input.custom_input.files) =
-                self.list_dir();
+            (
+                input.custom_input.items,
+                input.custom_input.dirs,
+                input.custom_input.files,
+            ) = self.list_dir();
 
             input.text = String::new();
             input.cursor_x = 0;
@@ -461,24 +468,26 @@ impl Supno {
 #[tokio::main]
 async fn main() {
     let config = load_config("config.yaml").expect("config bad :<, error");
-    let data = api
-        ::get_data(&config.bin_url, &config.x_master_key).await
+    let data = api::get_data(&config.bin_url, &config.x_master_key)
+        .await
         .expect("couldn't fetch >:(");
-    //let data = "{\".supno\":\"yes\",\"gnome\":{\"wa\":{},\"donkey\":\"horse\"}}";
-    let mut fs: models::FileSystem = serde_json
-        ::from_str(&data)
-        .expect("response json bad :<, error");
-    fs.entries.remove(".supno");
+    //let data = "{\"supno keep\":\"yes\",\"gnome\":{\"wa\":{},\"donkey\":\"horse\"}}";
+    let mut fs: models::FileSystem =
+        serde_json::from_str(&data).expect("response json bad :<, error");
+    fs.entries.remove("supno keep");
     let mut supno = Supno::new(fs);
     supno.listen_terminal();
     let supno_modified = supno.has_been_modified == true;
     if supno_modified {
         let mut data = supno.data;
-        data.entries.insert(".supno".to_string(), FileOrDirectory::File("yes".to_string()));
-        let text = serde_json::to_string(&data).expect("couldn't serialize json :<, error");
-        api::set_data(text, &config.bin_url, &config.x_master_key).await.expect(
-            "error setting data >:("
+        data.entries.insert(
+            "supno keep".to_string(),
+            FileOrDirectory::File("yes".to_string()),
         );
+        let text = serde_json::to_string(&data).expect("couldn't serialize json :<, error");
+        api::set_data(text, &config.bin_url, &config.x_master_key)
+            .await
+            .expect("error setting data >:(");
         println!("saved to cloud!");
     }
 }
