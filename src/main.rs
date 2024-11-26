@@ -18,8 +18,13 @@ mod models;
 #[derive(Parser, Debug)]
 #[command(about, long_about = None)]
 struct Args {
+    /// Config file path
     #[arg(short, long, default_value_t = String::from("config.yaml"))]
     config: String,
+
+    /// Reads the content of a file from its path
+    #[arg(short, long)]
+    read_file: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -487,7 +492,31 @@ async fn main() {
     // hide the "supno keep" file
     fs.entries.remove("supno keep");
 
+    if let Some(path) = args.read_file {
+        let segments = path.split('/');
+        let mut current_dir = &fs.entries;
+        for segment in segments {
+            if current_dir.contains_key(segment) {
+                let item = current_dir.get(segment).unwrap();
+                match item {
+                    FileOrDirectory::Directory(data) => {
+                        current_dir = data;
+                    }
+                    FileOrDirectory::File(data) => {
+                        println!("{data}");
+                        return;
+                    }
+                };
+            } else {
+                eprintln!("path '{path}' not found :<");
+                return;
+            }
+        }
+        return;
+    }
+
     let mut supno = Supno::new(fs);
+
     supno.listen_terminal();
     let supno_modified = supno.has_been_modified == true;
     if supno_modified {
