@@ -17,6 +17,8 @@ when launchuing the program you'll be greeted with a command line, with this inf
 
 type a note's name to start editing it. type a directory's name to navigate to it. type any amount of "." to navigate back a directory.
 
+when the program autocompletes in the command line, you can press enter and it will submit that autocompletion. no need to press tab or a key like that.
+
 ## commands
 * n <note_name> - create a new note in current dir
 * d <dir_name> - create a new dir in current dir
