@@ -9,7 +9,7 @@ all data is stored in the ✨cloud✨ through [jsonbio.io](https://jsonbin.io/).
 
 ## general quick start
 
-when launchuing the program you'll be greeted with a command line, with this information displayed:
+when launching the program you'll be greeted with a command line, with this information displayed:
 
 1. the first line states your current working directory.
 2. the second line the items in the current directory (green means directory, blue means note)
