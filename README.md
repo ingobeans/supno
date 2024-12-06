@@ -5,7 +5,7 @@ supno, a super note taking app (imho) for the command line. its designed to be f
 
 written in rust uses my [cool-rust-input](https://github.com/ingobeans/cool-rust-input) crate for input.
 
-all data is stored in the ✨cloud✨ through [jsonbio.io](https://jsonbin.io/). make and account and create a bin with the key "supno keep" with any value. add the api config to config.yaml and you're golden!
+all data is stored in the ✨cloud✨ through [jsonbio.io](https://jsonbin.io/). make an account and create a bin with the key "supno keep" with any value. add the api config to config.yaml and you're golden!
 
 ## general quick start
 
