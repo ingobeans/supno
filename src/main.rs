@@ -312,11 +312,14 @@ impl Supno {
             let data = data.to_string();
             let old_data = data.clone();
 
-            let mut input = CoolInput::new(EditFileInput {
-                file_name: name.to_string(),
-                should_save_file: false,
-                should_continue: false,
-            });
+            let mut input = CoolInput::new(
+                EditFileInput {
+                    file_name: name.to_string(),
+                    should_save_file: false,
+                    should_continue: false,
+                },
+                4,
+            );
             input.text = data;
             let mut should_continue = true;
             input.pre_listen().unwrap();
@@ -415,16 +418,19 @@ impl Supno {
     }
 
     fn listen_terminal(&mut self) {
-        let mut input = CoolInput::new(TerminalInput {
-            error_message: String::new(),
-            cwd: String::new(),
-            dirs: String::new(),
-            files: String::new(),
-            items: Vec::new(),
-            current_autocomplete: None,
-            should_quit: false,
-            should_back: false,
-        });
+        let mut input = CoolInput::new(
+            TerminalInput {
+                error_message: String::new(),
+                cwd: String::new(),
+                dirs: String::new(),
+                files: String::new(),
+                items: Vec::new(),
+                current_autocomplete: None,
+                should_quit: false,
+                should_back: false,
+            },
+            0,
+        );
 
         input.pre_listen().unwrap();
         loop {
