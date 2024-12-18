@@ -116,7 +116,7 @@ impl TerminalInput {
 
         let mut items = self.items.clone();
         items.sort_by_key(|item| item.len());
-        for item in &self.items {
+        for item in &items {
             if item == &current_input {
                 return None;
             }
