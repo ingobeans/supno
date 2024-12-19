@@ -469,7 +469,9 @@ impl Supno {
                 CommandResult::NotFound => {
                     if let Some(ref autocomplete) = input.custom_input.current_autocomplete {
                         let full = input.text.to_string() + &autocomplete.to_string();
-                        self.handle_path(&full);
+                        if let CommandResult::Ok = self.handle_path(&full) {
+                            self.error_message = String::new();
+                        }
                     } else {
                         self.error_message =
                             "unknown command or nonexisting file/directory".to_string();
