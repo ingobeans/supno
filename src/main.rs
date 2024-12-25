@@ -337,7 +337,6 @@ impl Supno {
                     current_dir.insert(name.to_string(), FileOrDirectory::File(new.to_string()));
                 }
             }
-            input.post_listen().unwrap();
 
             return CommandResult::Ok;
         }
