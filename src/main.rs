@@ -1,8 +1,10 @@
 use clap::Parser;
-use cool_rust_input::{set_terminal_line, CoolInput, CustomInput, KeyPressResult};
+use cool_rust_input::{
+    set_terminal_line, CoolInput, CustomInputHandler, HandlerContext, KeyPressResult,
+};
 use crossterm::event::{Event, KeyCode, KeyModifiers};
 use crossterm::{
-    execute,
+    queue,
     style::{Color, ResetColor, SetForegroundColor},
 };
 use models::{FileOrDirectory, FileSystem};
@@ -47,18 +49,18 @@ struct EditFileInput {
     should_save_file: bool,
     should_continue: bool,
 }
-impl CustomInput for EditFileInput {
-    fn get_offset(&mut self, _terminal_size: (u16, u16), _current_text: String) -> (u16, u16) {
+impl CustomInputHandler for EditFileInput {
+    fn get_offset(&mut self, _: HandlerContext) -> (u16, u16) {
         (0, 3)
     }
-    fn get_size(&mut self, terminal_size: (u16, u16), _current_text: String) -> (u16, u16) {
-        (terminal_size.0, terminal_size.1 - 3)
+    fn get_size(&mut self, ctx: HandlerContext) -> (u16, u16) {
+        (ctx.terminal_size.0, ctx.terminal_size.1 - 3)
     }
-    fn before_draw_text(&mut self, _terminal_size: (u16, u16), _current_text: String) {
-        let _ = execute!(stdout(), ResetColor);
+    fn before_draw_text(&mut self, _: HandlerContext) {
+        let _ = queue!(stdout(), ResetColor);
     }
-    fn after_draw_text(&mut self, _terminal_size: (u16, u16), _current_text: String) {
-        let _ = execute!(stdout(), SetForegroundColor(Color::Blue));
+    fn after_draw_text(&mut self, _: HandlerContext) {
+        let _ = queue!(stdout(), SetForegroundColor(Color::Blue));
         let header = "[".to_string() + &self.file_name + "]";
         set_terminal_line(&header, 0, 0, true).unwrap();
         set_terminal_line(
@@ -72,7 +74,7 @@ impl CustomInput for EditFileInput {
     fn handle_key_press(
         &mut self,
         key: &crossterm::event::Event,
-        _current_text: String,
+        _: HandlerContext,
     ) -> KeyPressResult {
         if let Event::Key(key_event) = key {
             if let KeyCode::Char(c) = key_event.code {
@@ -107,7 +109,7 @@ struct TerminalInput {
     should_back: bool,
 }
 impl TerminalInput {
-    fn autocomplete_input(&mut self, current_input: String) -> Option<String> {
+    fn autocomplete_input(&mut self, current_input: &String) -> Option<String> {
         if current_input.is_empty() {
             return None;
         }
@@ -115,39 +117,39 @@ impl TerminalInput {
         let mut items = self.items.clone();
         items.sort_by_key(|item| item.len());
         for item in &items {
-            if item == &current_input {
+            if item == current_input {
                 return None;
             }
-            if item.starts_with(&current_input) {
-                return Some(item.trim_start_matches(&current_input).to_string());
+            if item.starts_with(current_input) {
+                return Some(item.trim_start_matches(current_input).to_string());
             }
         }
         None
     }
 }
-impl CustomInput for TerminalInput {
-    fn get_offset(&mut self, _terminal_size: (u16, u16), _current_text: String) -> (u16, u16) {
+impl CustomInputHandler for TerminalInput {
+    fn get_offset(&mut self, _: HandlerContext) -> (u16, u16) {
         (0, 3)
     }
-    fn get_size(&mut self, terminal_size: (u16, u16), _current_text: String) -> (u16, u16) {
-        (terminal_size.0, terminal_size.1 - 3)
+    fn get_size(&mut self, ctx: HandlerContext) -> (u16, u16) {
+        (ctx.terminal_size.0, ctx.terminal_size.1 - 3)
     }
-    fn before_draw_text(&mut self, _terminal_size: (u16, u16), _current_text: String) {
-        let _ = execute!(stdout(), ResetColor);
+    fn before_draw_text(&mut self, _: HandlerContext) {
+        let _ = queue!(stdout(), ResetColor);
     }
-    fn after_draw_text(&mut self, _terminal_size: (u16, u16), current_text: String) {
-        let _ = execute!(stdout(), SetForegroundColor(Color::Grey));
+    fn after_draw_text(&mut self, ctx: HandlerContext) {
+        let _ = queue!(stdout(), SetForegroundColor(Color::Grey));
         set_terminal_line(&self.cwd, 0, 0, true).unwrap();
-        let _ = execute!(stdout(), SetForegroundColor(Color::Green));
+        let _ = queue!(stdout(), SetForegroundColor(Color::Green));
         set_terminal_line(&self.dirs, 0, 1, true).unwrap();
-        let _ = execute!(stdout(), SetForegroundColor(Color::Blue));
+        let _ = queue!(stdout(), SetForegroundColor(Color::Blue));
         set_terminal_line(&self.files, self.dirs.chars().count() + 1, 1, false).unwrap();
-        let _ = execute!(stdout(), SetForegroundColor(Color::Red));
+        let _ = queue!(stdout(), SetForegroundColor(Color::Red));
         set_terminal_line(&self.error_message, 0, 2, true).unwrap();
 
-        let _ = execute!(stdout(), SetForegroundColor(Color::DarkGrey));
-        let input_length = current_text.chars().count();
-        let autocomplete = self.autocomplete_input(current_text);
+        let _ = queue!(stdout(), SetForegroundColor(Color::DarkGrey));
+        let input_length = ctx.text_data.text.chars().count();
+        let autocomplete = self.autocomplete_input(&ctx.text_data.text);
         if let Some(autocomplete) = autocomplete {
             let _ = set_terminal_line(&autocomplete, input_length, 3, false);
             self.current_autocomplete = Some(autocomplete.to_string());
@@ -158,7 +160,7 @@ impl CustomInput for TerminalInput {
     fn handle_key_press(
         &mut self,
         key: &crossterm::event::Event,
-        _current_text: String,
+        _: HandlerContext,
     ) -> KeyPressResult {
         if let Event::Key(key_event) = key {
             if key_event.kind == crossterm::event::KeyEventKind::Press {
@@ -316,7 +318,7 @@ impl Supno {
                 },
                 4,
             );
-            input.text = data;
+            input.text_data.text = data;
             let mut should_continue = true;
             input.pre_listen().unwrap();
             input.render().unwrap();
@@ -325,7 +327,7 @@ impl Supno {
                 input.custom_input.should_continue = false;
                 input.listen_quiet().unwrap();
                 should_continue = input.custom_input.should_continue;
-                let new = input.text.to_string();
+                let new = input.text_data.text.to_string();
                 if input.custom_input.should_save_file {
                     self.has_been_modified = self.has_been_modified || old_data != new;
 
@@ -429,9 +431,9 @@ impl Supno {
                 input.custom_input.files,
             ) = self.list_dir();
 
-            input.text = String::new();
-            input.cursor_x = 0;
-            input.cursor_y = 0;
+            input.text_data.text = String::new();
+            input.text_data.cursor_x = 0;
+            input.text_data.cursor_y = 0;
             input.custom_input.should_back = false;
             input.render().unwrap();
             input.listen_quiet().unwrap();
@@ -445,7 +447,7 @@ impl Supno {
                 self.move_to_dir("..");
                 continue;
             }
-            let result = self.handle_command(input.text.to_string());
+            let result = self.handle_command(input.text_data.text.to_string());
             match result {
                 CommandResult::Ok => {
                     self.error_message = String::new();
@@ -455,7 +457,7 @@ impl Supno {
                 }
                 CommandResult::NotFound => {
                     if let Some(ref autocomplete) = input.custom_input.current_autocomplete {
-                        let full = input.text.to_string() + &autocomplete.to_string();
+                        let full = input.text_data.text.to_string() + &autocomplete.to_string();
                         if let CommandResult::Ok = self.handle_path(&full) {
                             self.error_message = String::new();
                         }

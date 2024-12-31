@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.5.21", features = ["derive"] }
-cool-rust-input = { git = "https://github.com/ingobeans/cool-rust-input.git" }
+cool-rust-input = "5.0.0"
 crossterm = "0.28.1"
 reqwest = "0.12.9"
 serde = { version = "1.0.214", features = ["serde_derive"] }

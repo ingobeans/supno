@@ -180,8 +180,9 @@ checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 
 [[package]]
 name = "cool-rust-input"
-version = "4.1.0"
-source = "git+https://github.com/ingobeans/cool-rust-input.git#f08f7b4c78403668b107a3fd6b1dec2c81993f8b"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0923f05e32467cdc9afc01a34e97cec2fbef77575dc8976e4d18945c4b1a3947"
 dependencies = [
  "crossterm",
 ]
