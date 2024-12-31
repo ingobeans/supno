@@ -1,4 +1,3 @@
-use reqwest;
 
 pub async fn get_data(url: &String, x_master_key: &String) -> Result<String, reqwest::Error> {
     let client = reqwest::Client::new();

@@ -7,8 +7,6 @@ use crossterm::{
 };
 use models::{FileOrDirectory, FileSystem};
 use serde::Deserialize;
-use serde_json;
-use serde_yaml;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{stdout, Read};
@@ -172,11 +170,9 @@ impl CustomInput for TerminalInput {
                     return KeyPressResult::Stop;
                 }
                 if let KeyCode::Char(c) = key_event.code {
-                    if key_event.modifiers.contains(KeyModifiers::CONTROL) {
-                        if c == 'x' {
-                            self.should_back = true;
-                            return KeyPressResult::Stop;
-                        }
+                    if key_event.modifiers.contains(KeyModifiers::CONTROL) && c == 'x' {
+                        self.should_back = true;
+                        return KeyPressResult::Stop;
                     }
                 }
             }
@@ -203,7 +199,7 @@ impl Supno {
     fn new(data: FileSystem) -> Self {
         Supno {
             cwd: "/".to_string(),
-            data: data,
+            data,
             error_message: "".to_string(),
             has_been_modified: false,
         }
@@ -237,7 +233,7 @@ impl Supno {
         let mut current_dir = &self.data.entries;
         for part in parts {
             if let FileOrDirectory::Directory(data) = current_dir.get(part).unwrap() {
-                current_dir = &data;
+                current_dir = data;
             }
         }
         current_dir
@@ -297,9 +293,9 @@ impl Supno {
         let current_dir = self.get_cwd_data();
         for (item, value) in current_dir {
             if let FileOrDirectory::Directory(_) = value {
-                dirs += &(item.to_string() + &" ");
+                dirs += &(item.to_string() + " ");
             } else {
-                files += &(item.to_string() + &" ");
+                files += &(item.to_string() + " ");
             }
             items.push(item.to_string());
         }
@@ -367,9 +363,7 @@ impl Supno {
         let keyword = args.next().unwrap_or("");
         let args: Vec<&str> = args.collect();
         match keyword {
-            "" => {
-                return CommandResult::Ok;
-            }
+            "" => CommandResult::Ok,
             "cd" => {
                 if args.len() != 1 {
                     return CommandResult::BadArgs;
@@ -402,17 +396,11 @@ impl Supno {
             }
             "abort" => {
                 self.has_been_modified = false;
-                return CommandResult::Exit;
+                CommandResult::Exit
             }
-            "exit" => {
-                return CommandResult::Exit;
-            }
-            "ok" => {
-                return CommandResult::Ok;
-            }
-            _ => {
-                return self.handle_path(keyword);
-            }
+            "exit" => CommandResult::Exit,
+            "ok" => CommandResult::Ok,
+            _ => self.handle_path(keyword),
         }
     }
 
@@ -525,8 +513,7 @@ async fn main() {
     let mut supno = Supno::new(fs);
 
     supno.listen_terminal();
-    let supno_modified = supno.has_been_modified == true;
-    if supno_modified {
+    if supno.has_been_modified {
         let mut data = supno.data;
 
         // create a supno keep file
